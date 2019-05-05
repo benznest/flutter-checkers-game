@@ -24,7 +24,10 @@ class MyGamePage extends StatefulWidget {
   final Color colorBackgroundF = Color(0xffeec295);
   final Color colorBackgroundT = Color(0xff9a6851);
   final Color colorBorderTable = Color(0xff6d3935);
+  final Color colorAppBar = Color(0xff6d3935);
+  final Color colorBackgroundGame = Color(0xffc16c34);
   final Color colorBackgroundHighlight = Colors.blue[500];
+  final Color colorBackgroundHighlightAfterKilling = Colors.purple[500];
 
   MyGamePage({Key key, this.title}) : super(key: key);
 
@@ -37,24 +40,60 @@ class MyGamePage extends StatefulWidget {
 class _MyGamePageState extends State<MyGamePage> {
 
   GameTable gameTable;
+  int modeWalking;
 
   @override
   void initState() {
-    gameTable = GameTable(countRow: 8, countCol: 8);
-    initMenOnTable();
+    initGame();
+
+    // For test
+    gameTable.currentPlayerTurn = 1;
+    gameTable.addMen(Coordinate(row: 6, col: 3), player: 1);
+    gameTable.addMen(Coordinate(row: 3, col: 4), player: 1, isKing: true);
+    gameTable.addMen(Coordinate(row: 6, col: 7), player: 2);
+    gameTable.addMen(Coordinate(row: 3, col: 6), player: 2, isKing: true);
+
     super.initState();
+  }
+
+  void initGame() {
+    modeWalking = GameTable.MODE_WALK_NORMAL;
+
+    gameTable = GameTable(countRow: 8, countCol: 8);
+    gameTable.initMenOnTable();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
+          backgroundColor: widget.colorAppBar,
           centerTitle: true,
-          title: Text(widget.title),
+          title: Text(widget.title.toUpperCase()),
+          elevation: 0,
+          actions: <Widget>[
+            IconButton(icon: Icon(Icons.refresh), onPressed: () {
+              setState(() {
+                initGame();
+              });
+            })
+          ],
         ),
-        body: Center(
-          child: buildGameTable(),
-        )
+        body: Container(color: widget.colorBackgroundGame, child:
+        Column(children: <Widget>[
+
+          Expanded(
+              child: Center(
+                child: buildGameTable(),
+              )),
+          Container(decoration: BoxDecoration(color: widget.colorAppBar,
+              boxShadow: [BoxShadow(
+                  color: Colors.black26, offset: Offset(0, 3), blurRadius: 12)
+              ]),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: <Widget>[buildCurrentPlayerTurn()],),
+          ),
+        ]))
     );
   }
 
@@ -82,6 +121,8 @@ class _MyGamePageState extends State<MyGamePage> {
     Color colorBackground;
     if (block.isHighlight) {
       colorBackground = widget.colorBackgroundHighlight;
+    } else if (block.isHighlightAfterKilling) {
+      colorBackground = widget.colorBackgroundHighlightAfterKilling;
     } else {
       if (gameTable.isBlockTypeF(coor)) {
         colorBackground = widget.colorBackgroundF;
@@ -96,10 +137,8 @@ class _MyGamePageState extends State<MyGamePage> {
           .getBlockTable(coor)
           .men;
 
-      menWidget = Center(child: Container(width: 32, height: 32,
-          decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: men.player == 1 ? Colors.black54 : Colors.grey[100])));
+      menWidget =
+          Center(child: buildMenWidget(player: men.player, isKing: men.isKing));
 
       if (men.player == gameTable.currentPlayerTurn) {
         menWidget = Draggable<Men>(
@@ -109,7 +148,8 @@ class _MyGamePageState extends State<MyGamePage> {
             data: men,
             onDragStarted: () {
               setState(() {
-                gameTable.highlightWalkable(men);
+                print("walking mode = ${modeWalking}");
+                gameTable.highlightWalkable(men, mode: modeWalking);
               });
             },
             onDragEnd: (details) {
@@ -129,19 +169,27 @@ class _MyGamePageState extends State<MyGamePage> {
             return buildBlockTableContainer(colorBackground, menWidget);
           },
           onWillAccept: (men) {
-            print("onWillAccept = ${gameTable
-                .getBlockTable(coor)
-                .isHighlight}");
-            return gameTable
-                .getBlockTable(coor)
-                .isHighlight;
+            BlockTable blockTable = gameTable
+                .getBlockTable(coor);
+            return
+              blockTable.isHighlight || blockTable.isHighlightAfterKilling;
           },
           onAccept: (men) {
             print("onAccept");
             setState(() {
-              gameTable.moveMen(men, Coordinate.copy(coor));
+              gameTable.moveMen(men, Coordinate.of(coor));
               gameTable.checkKilled(coor);
-              gameTable.togglePlayerTurn();
+              if (gameTable.checkKillableMore(coor)) {
+                modeWalking = GameTable.MODE_WALK_AFTER_KILLING;
+              } else {
+                if (gameTable.isKingArea(
+                    player: gameTable.currentPlayerTurn, coor: coor)) {
+                  men.upgradeToKing();
+                }
+                modeWalking = GameTable.MODE_WALK_NORMAL;
+                gameTable.clearHighlightWalkable();
+                gameTable.togglePlayerTurn();
+              }
             });
           });
     }
@@ -159,23 +207,40 @@ class _MyGamePageState extends State<MyGamePage> {
     return containerBackground;
   }
 
-
-  void initMenOnTable() {
-    initMenOnTableRow(player: 1, row: 0);
-    initMenOnTableRow(player: 1, row: 1);
-    initMenOnTableRow(player: 2, row: gameTable.countRow - 2);
-    initMenOnTableRow(player: 2, row: gameTable.countRow - 1);
-
-    // For test
-    gameTable.addMen(Coordinate(row: 3, col: 4), player: 1);
-    gameTable.addMen(Coordinate(row: 3, col: 2), player: 1);
-    gameTable.addMen(Coordinate(row: 4, col: 3), player: 2);
+  Widget buildCurrentPlayerTurn() {
+    return Padding(padding: EdgeInsets.all(12),
+        child: Column(
+            mainAxisAlignment: MainAxisAlignment.center, children: <Widget>[
+          Text("Current turn".toUpperCase(),
+              style: TextStyle(fontSize: 16, color: Colors.white)),
+          Padding(padding: EdgeInsets.all(6),
+              child: buildMenWidget(player: gameTable.currentPlayerTurn))
+        ]));
   }
 
-  void initMenOnTableRow({int player = 1, int row = 0}) {
-    for (int col = 0; col < gameTable.countCol; col++) {
-      gameTable.addMen(Coordinate(row: row, col: col), player: player);
+  buildMenWidget({int player = 1, bool isKing = false, double size = 32}) {
+    if (isKing) {
+      return Container(width: size, height: size,
+          decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(
+                  color: Colors.black45, offset: Offset(0, 4), blurRadius: 4)
+              ],
+              color: player == 1 ? Colors.black54 : Colors.grey[100]),
+          child: Icon(Icons.star,
+            color: player == 1 ? Colors.grey[100].withOpacity(0.5) : Colors
+                .black54.withOpacity(0.5),
+            size: 20,));
     }
+
+    return Container(width: size, height: size,
+        decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(
+                color: Colors.black45, offset: Offset(0, 4), blurRadius: 4)
+            ],
+            color: player == 1 ? Colors.black54 : Colors.grey[100]));
   }
+
 
 }
