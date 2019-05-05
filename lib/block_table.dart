@@ -9,4 +9,5 @@ class BlockTable {
   Killed victim = Killed.none();
 
   BlockTable({this.row = 0, this.col = 0, this.men, this.isHighlight = false});
+
 }

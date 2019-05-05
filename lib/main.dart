@@ -63,7 +63,7 @@ class _MyGamePageState extends State<MyGamePage> {
     for (int row = 0; row < gameTable.countRow; row++) {
       List<Widget> listRow = List();
       for (int col = 0; col < gameTable.countCol; col++) {
-        listRow.add(buildBlockContainer(row, col));
+        listRow.add(buildBlockContainer(Coordinate(row: row, col: col)));
       }
 
       listCol.add(Row(mainAxisSize: MainAxisSize.min,
@@ -76,14 +76,14 @@ class _MyGamePageState extends State<MyGamePage> {
             children: listCol));
   }
 
-  Widget buildBlockContainer(int row, int col) {
-    BlockTable block = gameTable.table[row][col];
+  Widget buildBlockContainer(Coordinate coor) {
+    BlockTable block = gameTable.getBlockTable(coor);
 
     Color colorBackground;
     if (block.isHighlight) {
       colorBackground = widget.colorBackgroundHighlight;
     } else {
-      if (isBlockTypeF(row, col)) {
+      if (gameTable.isBlockTypeF(coor)) {
         colorBackground = widget.colorBackgroundF;
       } else {
         colorBackground = widget.colorBackgroundT;
@@ -92,7 +92,10 @@ class _MyGamePageState extends State<MyGamePage> {
 
     Widget menWidget;
     if (block.men != null) {
-      Men men = gameTable.table[row][col].men;
+      Men men = gameTable
+          .getBlockTable(coor)
+          .men;
+
       menWidget = Center(child: Container(width: 32, height: 32,
           decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -119,21 +122,25 @@ class _MyGamePageState extends State<MyGamePage> {
       menWidget = Container();
     }
 
-    if (!gameTable.hasMen(row, col) && !isBlockTypeF(row, col)) {
+    if (!gameTable.hasMen(coor) && !gameTable.isBlockTypeF(coor)) {
       return DragTarget<Men>(
           builder: (context, candidateData, rejectedData) {
 //            print("DragTarget builder $row $col");
             return buildBlockTableContainer(colorBackground, menWidget);
           },
           onWillAccept: (men) {
-            print("onWillAccept = ${gameTable.table[row][col].isHighlight}");
-            return gameTable.table[row][col].isHighlight;
+            print("onWillAccept = ${gameTable
+                .getBlockTable(coor)
+                .isHighlight}");
+            return gameTable
+                .getBlockTable(coor)
+                .isHighlight;
           },
           onAccept: (men) {
             print("onAccept");
             setState(() {
-              gameTable.moveMen(men, Coordinate(row: row, col: col));
-              gameTable.checkKilled(row, col);
+              gameTable.moveMen(men, Coordinate.copy(coor));
+              gameTable.checkKilled(coor);
               gameTable.togglePlayerTurn();
             });
           });
@@ -152,27 +159,22 @@ class _MyGamePageState extends State<MyGamePage> {
     return containerBackground;
   }
 
-  bool isBlockTypeF(int row, int col) {
-    return (row % 2 == 0 && col % 2 == 0) || (row % 2 == 1 && col % 2 == 1);
-  }
 
   void initMenOnTable() {
     initMenOnTableRow(player: 1, row: 0);
     initMenOnTableRow(player: 1, row: 1);
     initMenOnTableRow(player: 2, row: gameTable.countRow - 2);
     initMenOnTableRow(player: 2, row: gameTable.countRow - 1);
+
+    // For test
+    gameTable.addMen(Coordinate(row: 3, col: 4), player: 1);
+    gameTable.addMen(Coordinate(row: 3, col: 2), player: 1);
+    gameTable.addMen(Coordinate(row: 4, col: 3), player: 2);
   }
 
   void initMenOnTableRow({int player = 1, int row = 0}) {
     for (int col = 0; col < gameTable.countCol; col++) {
-      if (!isBlockTypeF(row, col)) {
-        List<Men> listMen = player == 1 ? gameTable.listMenPlayer1 : gameTable
-            .listMenPlayer2;
-        Men men = Men(
-            player: player, coordinate: Coordinate(row: row, col: col));
-        listMen.add(men);
-        gameTable.table[row][col].men = men;
-      }
+      gameTable.addMen(Coordinate(row: row, col: col), player: player);
     }
   }
 
