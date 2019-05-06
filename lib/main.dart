@@ -42,29 +42,35 @@ class _MyGamePageState extends State<MyGamePage> {
   GameTable gameTable;
   int modeWalking;
 
+  double blockSize = 1;
+
   @override
   void initState() {
     initGame();
-
-    // For test
-    gameTable.currentPlayerTurn = 1;
-    gameTable.addMen(Coordinate(row: 6, col: 3), player: 1);
-    gameTable.addMen(Coordinate(row: 3, col: 4), player: 1, isKing: true);
-    gameTable.addMen(Coordinate(row: 6, col: 7), player: 2);
-    gameTable.addMen(Coordinate(row: 3, col: 6), player: 2, isKing: true);
-
     super.initState();
   }
 
   void initGame() {
     modeWalking = GameTable.MODE_WALK_NORMAL;
-
     gameTable = GameTable(countRow: 8, countCol: 8);
     gameTable.initMenOnTable();
+
+    // For test
+//    gameTable.currentPlayerTurn = 2;
+//    gameTable.addMen(Coordinate(row: 0, col: 7), player: 2, isKing: true);
+//    gameTable.addMen(Coordinate(row: 2, col: 5), player: 1);
+//    gameTable.addMen(Coordinate(row: 4, col: 5), player: 1, isKing: true);
+//    gameTable.addMen(Coordinate(row: 6, col: 5), player: 1);
+//    gameTable.addMen(Coordinate(row: 4, col: 1), player: 1, isKing: true);
+//    gameTable.addMen(Coordinate(row: 1, col: 2), player: 1);
+//    gameTable.addMen(Coordinate(row: 1, col: 4), player: 1);
+//    gameTable.addMen(Coordinate(row: 3, col: 6), player: 1);
   }
 
   @override
   Widget build(BuildContext context) {
+    initScreenSize(context);
+
     return Scaffold(
         appBar: AppBar(
           backgroundColor: widget.colorAppBar,
@@ -95,6 +101,27 @@ class _MyGamePageState extends State<MyGamePage> {
           ),
         ]))
     );
+  }
+
+  void initScreenSize(BuildContext context) {
+    double width = MediaQuery
+        .of(context)
+        .size
+        .width;
+    double height = MediaQuery
+        .of(context)
+        .size
+        .height;
+    double shortestSide = MediaQuery
+        .of(context)
+        .size
+        .shortestSide;
+
+    if (width < height) {
+      blockSize = (shortestSide / 8) - (shortestSide * 0.03);
+    } else {
+      blockSize = (shortestSide / 8) - (shortestSide * 0.05);
+    }
   }
 
   buildGameTable() {
@@ -138,7 +165,7 @@ class _MyGamePageState extends State<MyGamePage> {
           .men;
 
       menWidget =
-          Center(child: buildMenWidget(player: men.player, isKing: men.isKing));
+          Center(child: buildMenWidget(player: men.player, isKing: men.isKing, size: blockSize));
 
       if (men.player == gameTable.currentPlayerTurn) {
         menWidget = Draggable<Men>(
@@ -165,7 +192,6 @@ class _MyGamePageState extends State<MyGamePage> {
     if (!gameTable.hasMen(coor) && !gameTable.isBlockTypeF(coor)) {
       return DragTarget<Men>(
           builder: (context, candidateData, rejectedData) {
-//            print("DragTarget builder $row $col");
             return buildBlockTableContainer(colorBackground, menWidget);
           },
           onWillAccept: (men) {
@@ -179,7 +205,7 @@ class _MyGamePageState extends State<MyGamePage> {
             setState(() {
               gameTable.moveMen(men, Coordinate.of(coor));
               gameTable.checkKilled(coor);
-              if (gameTable.checkKillableMore(coor)) {
+              if (gameTable.checkKillableMore(men, coor)) {
                 modeWalking = GameTable.MODE_WALK_AFTER_KILLING;
               } else {
                 if (gameTable.isKingArea(
@@ -199,8 +225,8 @@ class _MyGamePageState extends State<MyGamePage> {
 
   Widget buildBlockTableContainer(Color colorBackground, Widget menWidget) {
     Widget containerBackground = Container(
-        width: 42,
-        height: 42,
+        width: blockSize + (blockSize * 0.1),
+        height: blockSize + (blockSize * 0.1),
         color: colorBackground,
         margin: EdgeInsets.all(2),
         child: menWidget);
@@ -214,7 +240,7 @@ class _MyGamePageState extends State<MyGamePage> {
           Text("Current turn".toUpperCase(),
               style: TextStyle(fontSize: 16, color: Colors.white)),
           Padding(padding: EdgeInsets.all(6),
-              child: buildMenWidget(player: gameTable.currentPlayerTurn))
+              child: buildMenWidget(player: gameTable.currentPlayerTurn, size: blockSize))
         ]));
   }
 
@@ -228,9 +254,9 @@ class _MyGamePageState extends State<MyGamePage> {
               ],
               color: player == 1 ? Colors.black54 : Colors.grey[100]),
           child: Icon(Icons.star,
-            color: player == 1 ? Colors.grey[100].withOpacity(0.5) : Colors
-                .black54.withOpacity(0.5),
-            size: 20,));
+              color: player == 1 ? Colors.grey[100].withOpacity(0.5) : Colors
+                  .black54.withOpacity(0.5),
+              size: size - (size * 0.1)));
     }
 
     return Container(width: size, height: size,

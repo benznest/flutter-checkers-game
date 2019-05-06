@@ -14,13 +14,12 @@ class GameTable {
   static const int MODE_WALK_AFTER_KILLING = 2; // walk after kill to 2 3 4.. enemy.
   static const int MODE_AFTER_KILLING = 3; // calculation to future that men can walk.
 
-
   int countRow = 8;
   int countCol = 8;
   List<List<BlockTable>> table;
-  List<Men> listMenPlayer1 = List();
-  List<Men> listMenPlayer2 = List();
   int currentPlayerTurn = 2;
+
+  List<Coordinate> listTempForKingWalkCalculation = List();
 
   GameTable({this.countRow = 8, this.countCol = 8}) {
     init();
@@ -69,12 +68,14 @@ class GameTable {
 
     if (men.player == 2) {
       if (men.isKing) {
+        listTempForKingWalkCalculation.clear();
         checkWalkableKing(men, mode);
       } else {
         checkWalkablePlayer2(men, mode: mode);
       }
     } else if (men.player == 1) {
       if (men.isKing) {
+        listTempForKingWalkCalculation.clear();
         checkWalkableKing(men, mode);
       } else {
         checkWalkablePlayer1(men, mode: mode);
@@ -120,8 +121,7 @@ class GameTable {
     return movableLeft || movableRight;
   }
 
-  bool checkWalkable(
-      {int mode, Coordinate next, Coordinate nextIfKilling, OnWalkableAfterKilling onKilling}) {
+  bool checkWalkable({int mode, Coordinate next, Coordinate nextIfKilling, OnWalkableAfterKilling onKilling}) {
     if (hasMen(next)) {
       if (hasMenEnemy(next)) {
         if (isBlockAvailable(nextIfKilling) && !hasMen(nextIfKilling)) {
@@ -242,16 +242,21 @@ class GameTable {
     return false;
   }
 
-  bool checkKillableMore(Coordinate coor) {
-    return getBlockTable(coor).killableMore;
+  bool checkKillableMore(Men men, Coordinate coor) {
+    if (men.isKing) {
+      listTempForKingWalkCalculation.clear();
+      return checkWalkableKing(men, MODE_AFTER_KILLING);
+    } else {
+      return getBlockTable(coor).killableMore;
+    }
   }
 
   void addMen(Coordinate coor, {int player = 1, bool isKing = false}) {
     if (!isBlockTypeF(coor)) {
-      List<Men> listMen = player == 1 ? listMenPlayer1 : listMenPlayer2;
+//      List<Men> listMen = player == 1 ? listMenPlayer1 : listMenPlayer2;
       Men men = Men(
           player: player, coordinate: Coordinate.of(coor), isKing: isKing);
-      listMen.add(men);
+//      listMen.add(men);
       getBlockTable(coor).men = men;
     }
   }
@@ -273,58 +278,101 @@ class GameTable {
     }
   }
 
-  void checkWalkableKing(Men men, int mode) {
-    checkWalkableKingPath(men, mode, addRow: -1, addCol: -1);
-    checkWalkableKingPath(men, mode, addRow: -1, addCol: 1);
-    checkWalkableKingPath(men, mode, addRow: 1, addCol: -1);
-    checkWalkableKingPath(men, mode, addRow: 1, addCol: 1);
+  bool checkWalkableKing(Men men, int mode) {
+    Killed killable1 = checkWalkableKingPath(men, mode, addRow: -1, addCol: -1);
+    Killed killable2 = checkWalkableKingPath(men, mode, addRow: -1, addCol: 1);
+    Killed killable3 = checkWalkableKingPath(men, mode, addRow: 1, addCol: -1);
+    Killed killable4 = checkWalkableKingPath(men, mode, addRow: 1, addCol: 1);
+    return killable1.isKilled || killable2.isKilled || killable3.isKilled || killable4.isKilled;
   }
 
-  void checkWalkableKingPath(Men men, int mode,
+  Killed checkWalkableKingPath(Men men, int mode,
       {int addRow = 0, int addCol = 0}) {
+    print("checkWalkableKingPath");
+    Killed killable = Killed.none();
     int row = men.coordinate.row + addRow;
     int col = men.coordinate.col + addCol;
 
+    if (row < 0 || row > countRow || col < 0 || col > countCol) {
+      return killable;
+    }
+
     for (int i = 0; i < countRow; i++) {
-      bool walkable = checkWalkableKingInBlock(
-          Coordinate(row: row, col: col),
+      Coordinate currentCoor = Coordinate(row: row, col: col);
+
+      bool isWalked = listTempForKingWalkCalculation.where((coor) {
+        return coor.row == row && coor.col == col;
+      })
+          .toList()
+          .isNotEmpty;
+
+      if (isWalked) {
+        return killable;
+      } else {
+        listTempForKingWalkCalculation.add(currentCoor);
+        for (Coordinate c in listTempForKingWalkCalculation) {
+          print("Temp = (${c.row},${c.col})");
+        }
+      }
+
+      bool walkable = checkWalkableKingInBlock(mode,
+          currentCoor,
           addRow: addRow,
           addCol: addCol,
           onKingWalkable: (newCoor) {
             if (mode == MODE_WALK_NORMAL) {
               setHighlightWalkable(newCoor);
-            } else if (mode == MODE_AFTER_KILLING) {
-              setHighlightWalkableAfterKilling(newCoor);
             }
           },
           onKingWalkableAfterKilling: (newCoor, killed) {
             if (isBlockAvailable(newCoor)) {
+              killable = killed;
               getBlockTable(newCoor).victim = killed;
-              setHighlightWalkableAfterKilling(newCoor);
+              if (mode == MODE_WALK_NORMAL) {
+                setHighlightWalkableAfterKilling(newCoor);
+              }
+              if (mode == MODE_WALK_AFTER_KILLING) {
+                setHighlightWalkableAfterKilling(newCoor);
+              }
+
+              print("${newCoor.row},${newCoor.col}");
+              bool killableMore = checkWalkableKing(Men.of(men, newCoor: newCoor), MODE_AFTER_KILLING);
+
+              print("killableMore = $killableMore");
+              getBlockTable(newCoor).killableMore = killableMore;
             }
-//            checkWalkableKing(men, MODE_AFTER_KILLING);
           },
           onKingUnwalkable: (newCoor) {
 
           });
 
+
       if (!walkable) {
-        return;
+        return killable;
       }
 
 
       row += addRow;
       col += addCol;
+
+      if (row < 0 || row > countRow || col < 0 || col > countCol) {
+        return killable;
+      }
     }
+    return killable;
   }
 
-  bool checkWalkableKingInBlock(Coordinate coor, {
-    int addRow = 0, int addCol = 0,
-    OnKingWalkable onKingWalkable,
-    OnKingWalkableAfterKilling onKingWalkableAfterKilling,
-    OnKingUnWalkable onKingUnwalkable}) {
+  bool checkWalkableKingInBlock(int mode, Coordinate coor,
+      {
+        int addRow = 0, int addCol = 0,
+        OnKingWalkable onKingWalkable,
+        OnKingWalkableAfterKilling onKingWalkableAfterKilling,
+        OnKingUnWalkable onKingUnwalkable}) {
     if (!hasMen(coor)) {
-      setHighlightWalkable(coor);
+      if (mode == MODE_WALK_NORMAL) {
+        setHighlightWalkable(coor);
+      }
+
       if (onKingWalkable != null) {
         onKingWalkable(coor);
       }

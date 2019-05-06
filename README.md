@@ -1,16 +1,16 @@
-# flutter_draughts_checkers_game
+# Checkers Game 
 
-A new Flutter application.
+on Flutter
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
+![Game Play](images/a5.gif)
+![Game Play](images/a6.gif)
 
-A few resources to get you started if this is your first Flutter project:
+![Game Play](images/a7.gif)
+![Game Play](images/a8.gif)
 
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
+![Game Play](images/a9.gif)
 
-For help getting started with Flutter, view our 
-[online documentation](https://flutter.dev/docs), which offers tutorials, 
-samples, guidance on mobile development, and a full API reference.
+
+![Game Play](images/t1.png)
+![Game Play](images/t2.png)
